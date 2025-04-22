@@ -8,7 +8,7 @@ import {
     INetworkModule,
     Logger,
     AuthenticationResult,
-} from "@azure/msal-common/node";
+} from "@azure/msal-common";
 import { AppService } from "./ManagedIdentitySources/AppService.js";
 import { AzureArc } from "./ManagedIdentitySources/AzureArc.js";
 import { CloudShell } from "./ManagedIdentitySources/CloudShell.js";
@@ -58,7 +58,8 @@ export class ManagedIdentityClient {
         managedIdentityRequest: ManagedIdentityRequest,
         managedIdentityId: ManagedIdentityId,
         fakeAuthority: Authority,
-        refreshAccessToken?: boolean
+        refreshAccessToken?: boolean,
+        cachedAccessToken?: string
     ): Promise<AuthenticationResult> {
         if (!ManagedIdentityClient.identitySource) {
             ManagedIdentityClient.identitySource =
@@ -76,7 +77,8 @@ export class ManagedIdentityClient {
             managedIdentityRequest,
             managedIdentityId,
             fakeAuthority,
-            refreshAccessToken
+            refreshAccessToken,
+            cachedAccessToken
         );
     }
 

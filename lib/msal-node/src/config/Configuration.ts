@@ -15,7 +15,7 @@ import {
     ApplicationTelemetry,
     INativeBrokerPlugin,
     ClientAssertionCallback,
-} from "@azure/msal-common/node";
+} from "@azure/msal-common";
 import { HttpClient } from "../network/HttpClient.js";
 import http from "http";
 import https from "https";
@@ -136,6 +136,7 @@ export type ManagedIdentityIdParams = {
 export type ManagedIdentityConfiguration = {
     managedIdentityIdParams?: ManagedIdentityIdParams;
     system?: NodeSystemOptions;
+    clientCapabilities?: string[];
 };
 
 const DEFAULT_AUTH_OPTIONS: Required<NodeAuthOptions> = {
@@ -251,11 +252,13 @@ export type ManagedIdentityNodeConfiguration = {
         Pick<NodeSystemOptions, "loggerOptions" | "networkClient">
     >;
     disableInternalRetries: boolean;
+    clientCapabilities?: string[];
 };
 
 export function buildManagedIdentityConfiguration({
     managedIdentityIdParams,
     system,
+    clientCapabilities,
 }: ManagedIdentityConfiguration): ManagedIdentityNodeConfiguration {
     const managedIdentityId: ManagedIdentityId = new ManagedIdentityId(
         managedIdentityIdParams
@@ -283,5 +286,6 @@ export function buildManagedIdentityConfiguration({
             networkClient,
         },
         disableInternalRetries: system?.disableInternalRetries || false,
+        clientCapabilities: clientCapabilities,
     };
 }

@@ -19,12 +19,13 @@ import {
     createClientAuthError,
     AuthenticationResult,
     UrlString,
-} from "@azure/msal-common/node";
+} from "@azure/msal-common";
 import { ManagedIdentityId } from "../../config/ManagedIdentityId.js";
 import { ManagedIdentityRequestParameters } from "../../config/ManagedIdentityRequestParameters.js";
 import { CryptoProvider } from "../../crypto/CryptoProvider.js";
 import { ManagedIdentityRequest } from "../../request/ManagedIdentityRequest.js";
-import { HttpMethod, ManagedIdentityIdType } from "../../utils/Constants.js";
+import { HttpMethod, ManagedIdentityIdType, ManagedIdentitySourceNames } from "../../utils/Constants.js";
+import { ManagedIdentityClient } from "../ManagedIdentityClient.js";
 import { ManagedIdentityTokenResponse } from "../../response/ManagedIdentityTokenResponse.js";
 import { NodeStorage } from "../../cache/NodeStorage.js";
 import {
@@ -138,13 +139,37 @@ export abstract class BaseManagedIdentitySource {
         managedIdentityRequest: ManagedIdentityRequest,
         managedIdentityId: ManagedIdentityId,
         fakeAuthority: Authority,
-        refreshAccessToken?: boolean
+        refreshAccessToken?: boolean,
+        cachedAccessToken?: string
     ): Promise<AuthenticationResult> {
         const networkRequest: ManagedIdentityRequestParameters =
             this.createRequest(
                 managedIdentityRequest.resource,
                 managedIdentityId
             );
+
+        try {
+            // Add client capabilities if available
+            if (managedIdentityRequest.clientCapabilities && managedIdentityRequest.clientCapabilities.length > 0) {
+                this.logger.verbose("Adding client capabilities to request");
+                networkRequest.addClientCapabilities(managedIdentityRequest.clientCapabilities);
+            }
+            
+            // If claims are provided or we're refreshing a token due to revocation, add the token hash
+            if ((managedIdentityRequest.claims || refreshAccessToken) && cachedAccessToken) {
+                // Only supported in App Service and Service Fabric environments
+                const sourceName = ManagedIdentityClient.sourceName;
+                if (sourceName === ManagedIdentitySourceNames.APP_SERVICE || 
+                    sourceName === ManagedIdentitySourceNames.SERVICE_FABRIC) {
+                    this.logger.verbose("Adding token hash for refresh");
+                    networkRequest.addTokenToRefresh(cachedAccessToken);
+                } else {
+                    this.logger.verbose(`Token revocation not supported in ${sourceName} environment`);
+                }
+            }
+        } catch (error) {
+            this.logger.warning(`Error setting up client capabilities: ${error}`);
+        }
 
         const headers: Record<string, string> = networkRequest.headers;
         headers[HeaderNames.CONTENT_TYPE] = Constants.URL_FORM_CONTENT_TYPE;

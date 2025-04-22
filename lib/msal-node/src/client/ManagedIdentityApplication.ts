@@ -18,7 +18,7 @@ import {
     AuthenticationResult,
     createClientConfigurationError,
     ClientConfigurationErrorCodes,
-} from "@azure/msal-common/node";
+} from "@azure/msal-common";
 import {
     ManagedIdentityConfiguration,
     ManagedIdentityNodeConfiguration,
@@ -59,6 +59,11 @@ export class ManagedIdentityApplication {
     constructor(configuration?: ManagedIdentityConfiguration) {
         // undefined config means the managed identity is system-assigned
         this.config = buildManagedIdentityConfiguration(configuration || {});
+        
+        // Set client capabilities if provided in configuration
+        if (configuration?.clientCapabilities) {
+            this.config.clientCapabilities = configuration.clientCapabilities;
+        }
 
         this.logger = new Logger(
             this.config.system.loggerOptions,
@@ -141,17 +146,39 @@ export class ManagedIdentityApplication {
             ],
             authority: this.fakeAuthority.canonicalAuthority,
             correlationId: this.cryptoProvider.createNewGuid(),
+            claims: managedIdentityRequestParams.claims,
+            clientCapabilities: managedIdentityRequestParams.clientCapabilities || this.config.clientCapabilities
         };
 
         if (
             managedIdentityRequestParams.claims ||
             managedIdentityRequest.forceRefresh
         ) {
+            // Get the cached token if available for token revocation
+            let cachedToken;
+            try {
+                const [cachedAuthenticationResult] = 
+                    await this.fakeClientCredentialClient.getCachedAuthenticationResult(
+                        managedIdentityRequest,
+                        this.config,
+                        this.cryptoProvider,
+                        this.fakeAuthority,
+                        ManagedIdentityApplication.nodeStorage
+                    );
+                
+                cachedToken = cachedAuthenticationResult?.accessToken;
+            } catch (error) {
+                // If we can't get the cached token, continue without it
+                this.logger.verbose(`Could not retrieve cached token: ${error}`);
+            }
+            
             // make a network call to the managed identity source
             return this.managedIdentityClient.sendManagedIdentityTokenRequest(
                 managedIdentityRequest,
                 this.config.managedIdentityId,
-                this.fakeAuthority
+                this.fakeAuthority,
+                false,
+                cachedToken
             );
         }
 
@@ -173,12 +200,18 @@ export class ManagedIdentityApplication {
 
                 // make a network call to the managed identity source; refresh the access token in the background
                 const refreshAccessToken = true;
-                await this.managedIdentityClient.sendManagedIdentityTokenRequest(
-                    managedIdentityRequest,
-                    this.config.managedIdentityId,
-                    this.fakeAuthority,
-                    refreshAccessToken
-                );
+                try {
+                    await this.managedIdentityClient.sendManagedIdentityTokenRequest(
+                        managedIdentityRequest,
+                        this.config.managedIdentityId,
+                        this.fakeAuthority,
+                        refreshAccessToken,
+                        cachedAuthenticationResult.accessToken
+                    );
+                } catch (error) {
+                    // Log the error but don't fail the entire token acquisition
+                    this.logger.warning(`Failed to refresh token in background: ${error}`);
+                }
             }
 
             return cachedAuthenticationResult;
@@ -187,7 +220,9 @@ export class ManagedIdentityApplication {
             return this.managedIdentityClient.sendManagedIdentityTokenRequest(
                 managedIdentityRequest,
                 this.config.managedIdentityId,
-                this.fakeAuthority
+                this.fakeAuthority,
+                false,
+                undefined // No cached token to use for refresh
             );
         }
     }

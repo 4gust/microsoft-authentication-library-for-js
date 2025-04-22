@@ -3,7 +3,7 @@
  * Licensed under the MIT License.
  */
 
-import { HttpStatus } from "@azure/msal-common/node";
+import { HttpStatus } from "@azure/msal-common";
 import { DefaultManagedIdentityRetryPolicy } from "../retry/DefaultManagedIdentityRetryPolicy.js";
 import { ImdsRetryPolicy } from "../retry/ImdsRetryPolicy.js";
 
@@ -14,6 +14,8 @@ export const APP_SERVICE_SECRET_HEADER_NAME: string = "X-IDENTITY-HEADER";
 export const ML_AND_SF_SECRET_HEADER_NAME: string = "secret";
 export const API_VERSION_QUERY_PARAMETER_NAME: string = "api-version";
 export const RESOURCE_BODY_OR_QUERY_PARAMETER_NAME: string = "resource";
+export const CLIENT_CAPABILITIES_QUERY_PARAMETER_NAME: string = "xms_cc";
+export const TOKEN_SHA256_TO_REFRESH_QUERY_PARAMETER_NAME: string = "token_sha256_to_refresh";
 export const DEFAULT_MANAGED_IDENTITY_ID = "system_assigned_managed_identity";
 export const MANAGED_IDENTITY_DEFAULT_TENANT = "managed_identity";
 export const DEFAULT_AUTHORITY_FOR_MANAGED_IDENTITY = `https://login.microsoftonline.com/${MANAGED_IDENTITY_DEFAULT_TENANT}/`;

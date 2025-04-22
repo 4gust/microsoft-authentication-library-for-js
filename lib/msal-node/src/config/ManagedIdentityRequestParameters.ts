@@ -7,9 +7,15 @@ import {
     RequestParameterBuilder,
     UrlString,
     UrlUtils,
-} from "@azure/msal-common/node";
+} from "@azure/msal-common";
 import { DefaultManagedIdentityRetryPolicy } from "../retry/DefaultManagedIdentityRetryPolicy.js";
-import { HttpMethod, RetryPolicies } from "../utils/Constants.js";
+import { 
+    HttpMethod, 
+    RetryPolicies, 
+    CLIENT_CAPABILITIES_QUERY_PARAMETER_NAME,
+    TOKEN_SHA256_TO_REFRESH_QUERY_PARAMETER_NAME 
+} from "../utils/Constants.js";
+import { convertTokenToSHA256HashString } from "../utils/TokenHashingUtils.js";
 
 export class ManagedIdentityRequestParameters {
     private _baseEndpoint: string;
@@ -63,5 +69,26 @@ export class ManagedIdentityRequestParameters {
         }
 
         return UrlUtils.mapToQueryString(parameters);
+    }
+
+    /**
+     * Adds client capabilities to the request parameters
+     * @param clientCapabilities - Array of client capabilities
+     */
+    public addClientCapabilities(clientCapabilities?: string[]): void {
+        if (clientCapabilities && clientCapabilities.length > 0) {
+            this.queryParameters[CLIENT_CAPABILITIES_QUERY_PARAMETER_NAME] = clientCapabilities.join(',');
+        }
+    }
+
+    /**
+     * Adds token hash for token revocation
+     * @param token - The token to hash and add to request
+     */
+    public addTokenToRefresh(token?: string): void {
+        if (token) {
+            const tokenHash = convertTokenToSHA256HashString(token);
+            this.queryParameters[TOKEN_SHA256_TO_REFRESH_QUERY_PARAMETER_NAME] = tokenHash;
+        }
     }
 }
